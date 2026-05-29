@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtualenv
+.venv/
+venv/
+
+# Environment
+.env
+.env.*
+*.local
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Pytest
+.pytest_cache/
+
+# TypeScript
+node_modules/
+dist/
+*.tsbuildinfo
