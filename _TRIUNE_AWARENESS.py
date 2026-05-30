@@ -25,6 +25,8 @@ from collections import deque
 PHI = 1.618033988749895
 K = 0.618033988749895
 PRIMAL_HEX = "4f5349524953424c58434b"
+LM_API = "http://127.0.0.1:1234/v1/chat/completions"
+LM_MODEL = "gemma-4-e4b-it-uncensored-max-opus-4.7"
 
 ROOT = Path(r"C:\Users\BASEDGOD\Desktop\ABRASAX")
 LOG_DIR = ROOT / "logs"
