@@ -22,7 +22,7 @@ SELF_PID = os.getpid()
 
 # LLM backends
 LM_STUDIO_URL = 'http://127.0.0.1:1234/v1'
-LM_STUDIO_KEY = 'sk-lm-KZtEmyJA:qJJk4G0dhYrRT3kWKyQa'
+LM_STUDIO_KEY = os.environ.get("LM_STUDIO_KEY", "")
 LOCAL_MODEL = 'gemma-4-e4b-it-uncensored-max-opus-4.7'
 LM_HEADERS = {'Authorization': f'Bearer {LM_STUDIO_KEY}', 'Content-Type': 'application/json'}
 
@@ -832,7 +832,7 @@ def rebuild_rust():
 
 def start_telegram():
     env = {'ABRASAX_LLM_HOST': '127.0.0.1', 'ABRASAX_LLM_PORT': '1234',
-           'ABRASAX_TG_DEMO': '0', 'ABRASAX_TG_TOKEN': '7765442516:AAHdP-GtC3CAwG_V-Sk9WBPVFQf4Lcuoue4',
+           'ABRASAX_TG_DEMO': '0', 'ABRASAX_TG_TOKEN': os.environ.get('ABRASAX_TG_TOKEN', ''),
            'ABRASAX_ADMIN_IDS': '2611544979'}
     tg = Path(ROOT)/'telegram'/'start_telegram_bridge.py'
     return start_process('telegram', [sys.executable, str(tg)], cwd=str(tg.parent), env=env)
@@ -857,7 +857,7 @@ def main():
     time.sleep(3)
     
     # Quick LLM test
-    resp, _ = query_llm_deepseek("Reply EXACTLY: READY", max_tokens=10)
+    resp, _ = query_llm("Reply EXACTLY: READY", max_tokens=10)
     if resp:
         log(f"DeepSeek API: {resp.strip()}", 'OK')
     else:
