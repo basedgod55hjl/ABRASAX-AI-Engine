@@ -13,7 +13,7 @@ HEX = "4f5349524953424c58434b"
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 LM_URL = "http://127.0.0.1:1234/v1"
-LM_KEY = "sk-lm-KZtEmyJA:qJJk4G0dhYrRT3kWKyQa"
+LM_KEY = "sk-lm-JuuXxVZg:ZNBtoSD7qyQDUw0qkpIB"
 
 def check_lm_studio():
     """Verify LM Studio is online."""

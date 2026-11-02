@@ -23,7 +23,7 @@ SELF_PID = os.getpid()
 # LLM backends (local LM Studio only). Key comes from the environment / .env — never hardcode.
 LM_STUDIO_URL = os.environ.get('LM_STUDIO_URL', 'http://127.0.0.1:1234/v1')
 LM_STUDIO_KEY = os.environ.get('LM_API_KEY') or os.environ.get('LM_STUDIO_API_KEY', '')
-LOCAL_MODEL = os.environ.get('ABRASAX_LLM_MODEL', 'gemma-4-e4b-uncensored-hauhaucs-aggressive')
+LOCAL_MODEL = os.environ.get('ABRASAX_LLM_MODEL', 'gemma-4-e2b-uncensored-hauhaucs-aggressive')
 LM_HEADERS = {'Content-Type': 'application/json'}
 if LM_STUDIO_KEY:
     LM_HEADERS['Authorization'] = f'Bearer {LM_STUDIO_KEY}'

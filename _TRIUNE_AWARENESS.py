@@ -26,7 +26,7 @@ PHI = 1.618033988749895
 K = 0.618033988749895
 PRIMAL_HEX = "4f5349524953424c58434b"
 LM_API = "http://127.0.0.1:1234/v1/chat/completions"
-LM_MODEL = "gemma-4-e4b-uncensored-hauhaucs-aggressive"
+LM_MODEL = "gemma-4-e2b-uncensored-hauhaucs-aggressive"
 
 ROOT = Path(os.environ.get("ABRASAX_ROOT") or r"C:\abrasax")
 LOG_DIR = ROOT / "logs"

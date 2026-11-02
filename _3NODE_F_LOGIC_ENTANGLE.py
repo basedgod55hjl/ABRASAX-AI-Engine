@@ -35,18 +35,19 @@ DATA_LOG.mkdir(parents=True, exist_ok=True)
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── NODE F1: Hex TypeScript Bridge ──
+# TS sources live under AGENTS/TS-SWARM/ABRASAX-Agents/src (verified on disk).
 NODE_F1 = {
     "ts_files": [
-        "abrasax_hex.ts",
-        "abrasax_engine.ts",
-        "abrasax_api.ts",
-        "abrasax_tools.ts",
-        "abrasax_memory.ts",
-        "abrasax_swarm.ts",
-        "abrasax_skills.ts",
-        "abrasax_terminal.ts",
-        "abrasax_diagnostics.ts",
-        "abrasax_config.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_hex.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_engine.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_api.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_tools.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_memory.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_swarm.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_skills.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_terminal.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_diagnostics.ts",
+        "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_config.ts",
     ],
     "server_port": 3000,
 }
@@ -571,6 +572,12 @@ def entanglement_loop(interval: float = 5.0):
 # ═════════════════════════════════════════════════════════════════════
 
 def main():
+    # The banner uses box-drawing glyphs; force UTF-8 stdout so a cp1252
+    # console can't crash the bridge (UnicodeEncodeError) before it wires.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     print(f'''
 ╔{"═"*62}╗
 ║  3-NODE F-LOGIC ENTANGLEMENT BRIDGE                     ║
@@ -594,6 +601,9 @@ def main():
     generate_python_bridge_server()
 
     if args.serve:
+        # f_bridge_server.py is generated at ROOT, not next to this script.
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
         # Start bridge server in a thread
         from f_bridge_server import main as server_main
         import threading

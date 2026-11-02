@@ -38,7 +38,7 @@ ULTIMATE_LOG: Path = LOG_DIR / "ultimate_wire.log"
 LM_STUDIO_URL: str = "http://127.0.0.1:1234/v1/chat/completions"
 LM_STUDIO_KEY: str = "sk-lm-KZtEmyJA:qJJk4G0dhYrRT3kWKyQa"
 LM_STUDIO_MODELS_URL: str = "http://127.0.0.1:1234/v1/models"  # used by check_local_llm
-LOCAL_MODEL: str = "gemma-4-e4b-uncensored-hauhaucs-aggressive"  # Chat model — NOT deepseek-r1 reasoner
+LOCAL_MODEL: str = "gemma-4-e2b-uncensored-hauhaucs-aggressive"  # Chat model — NOT deepseek-r1 reasoner
 LOCAL_AVAILABLE: bool = False
 
 def log(msg: str, tag: str = "ULTIMATE") -> None:
