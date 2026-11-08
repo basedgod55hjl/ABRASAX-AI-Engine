@@ -17,6 +17,7 @@
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 import os, sys, json, time, subprocess, threading, math
+import urllib.request, urllib.error
 from datetime import datetime
 from pathlib import Path
 from collections import deque
@@ -25,8 +26,16 @@ from collections import deque
 PHI = 1.618033988749895
 K = 0.618033988749895
 PRIMAL_HEX = "4f5349524953424c58434b"
-LM_API = "http://127.0.0.1:1234/v1/chat/completions"
-LM_MODEL = "gemma-4-e2b-uncensored-hauhaucs-aggressive"
+LM_BASE = os.environ.get("ABRASAX_LM_URL", "http://127.0.0.1:1234/v1")
+LM_API = LM_BASE.rstrip("/") + "/chat/completions"
+LM_MODEL = os.environ.get("ABRASAX_LM_MODEL", "gemma-4-e2b-uncensored-hauhaucs-aggressive")
+LM_TIMEOUT = float(os.environ.get("ABRASAX_LM_TIMEOUT", "25"))
+# Face 2 only claims "LLM awareness" when it can actually reach a model.
+LM_ENABLED = True
+# φ-balance target: the VRAM ratio the loop treats as resonant. 0.618 is the
+# theoretical optimum; a 6 GB card idling at 1.3 GB sits ~0.22 and therefore
+# reads as "unstable" forever, so this is overridable per host.
+TARGET_RATIO = float(os.environ.get("ABRASAX_TARGET_VRAM_RATIO", str(K)))
 
 ROOT = Path(os.environ.get("ABRASAX_ROOT") or r"C:\abrasax")
 LOG_DIR = ROOT / "logs"
@@ -108,6 +117,103 @@ def log_state():
 
 
 # ═════════════════════════════════════════════════════════════════════
+#  LM STUDIO BRIDGE — makes Face 2 a real LLM reflection, not a rule
+# ═════════════════════════════════════════════════════════════════════
+
+def _lm_api_key() -> str:
+    """LM Studio key from the environment, else from <ROOT>/.env."""
+    key = os.environ.get("LM_STUDIO_API_KEY") or os.environ.get("LM_API_KEY") or ""
+    if key:
+        return key
+    try:
+        for line in (ROOT / ".env").read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            name, _, value = line.partition("=")
+            if name.strip() in {"LM_STUDIO_API_KEY", "LM_API_KEY"}:
+                return value.strip().strip("\"'")
+    except OSError:
+        pass
+    return ""
+
+
+def lm_resident_model(timeout: float = 5.0) -> str | None:
+    """Return the first model LM Studio reports as resident, or None."""
+    url = LM_BASE.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    url += "/api/v1/models"
+    req = urllib.request.Request(url)
+    key = _lm_api_key()
+    if key:
+        req.add_header("Authorization", f"Bearer {key}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read())
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    for model in data.get("models", []):
+        if model.get("loaded_instances"):
+            return model.get("key")
+    return None
+
+
+def lm_chat(prompt: str, system: str, model: str | None = None,
+            timeout: float | None = None, max_tokens: int = 160) -> dict:
+    """One non-streaming chat completion against LM Studio.
+
+    Returns {"ok", "text", "model", "latency_s", "error"}. Never raises: a dead
+    model is a recorded condition, not a crashed loop.
+    """
+    model = model or LM_MODEL
+    payload = json.dumps({
+        "model": model,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": prompt}],
+        "temperature": 0.4,
+        "max_tokens": max_tokens,
+        "stream": False,
+    }).encode()
+    req = urllib.request.Request(LM_API, data=payload,
+                                 headers={"Content-Type": "application/json"},
+                                 method="POST")
+    key = _lm_api_key()
+    if key:
+        req.add_header("Authorization", f"Bearer {key}")
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout or LM_TIMEOUT) as r:
+            data = json.loads(r.read())
+    except Exception as exc:  # noqa: BLE001 - report, never crash the face
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                "model": model, "text": "", "latency_s": round(time.time() - t0, 3)}
+    text = ""
+    try:
+        text = data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError):
+        return {"ok": False, "error": "unexpected response shape",
+                "model": data.get("model", model), "text": "",
+                "latency_s": round(time.time() - t0, 3)}
+    return {"ok": bool(text.strip()), "text": text.strip(),
+            "model": data.get("model", model), "error": None,
+            "latency_s": round(time.time() - t0, 3)}
+
+
+def lm_reflect(context: dict, rule_insight: str) -> dict:
+    """Ask the resident model for one operational insight about the state."""
+    model = lm_resident_model() or LM_MODEL
+    system = ("You are ABRASAX TRIUNE, the awareness layer of a local AI stack. "
+              "Given measured telemetry, reply with ONE operational insight and ONE "
+              "concrete next action. Maximum two sentences. No preamble.")
+    prompt = ("Measured state:\n" + json.dumps(context, indent=2, ensure_ascii=False)
+              + f"\n\nRule baseline: {rule_insight}\n\nYour reflection:")
+    out = lm_chat(prompt, system, model=model, max_tokens=160)
+    out["model_used"] = model
+    return out
+
+
+# ═════════════════════════════════════════════════════════════════════
 #  FACE 1 — SELF-MONITORING (Telemetry)
 # ═════════════════════════════════════════════════════════════════════
 
@@ -134,23 +240,37 @@ def get_gpu_telemetry() -> dict:
 
 
 def get_process_telemetry() -> dict:
-    """Get telemetry on ABRASAX processes."""
-    processes = {}
+    """Per-image count, PIDs and working set for python/node runners.
+
+    `wmic` is deprecated (absent on recent Windows images) and its CSV layout
+    shifts between builds, so this reads `tasklist`, which is stable. Memory is
+    reported in KiB as tasklist prints it.
+    """
+    import csv as _csv
+
+    processes: dict[str, dict] = {}
     try:
         out = subprocess.check_output(
-            'wmic process where "name=\'python.exe\' or name=\'node.exe\' or name=\'abrasax.exe\' or name=\'abrasaxd.exe\'" get processid,name,WorkingSetSize /format:csv 2>nul',
-            shell=True, timeout=5, stderr=subprocess.DEVNULL
-        ).decode()
-        for line in out.split("\n")[1:]:
-            parts = line.strip().split(",")
-            if len(parts) >= 3:
-                name = parts[1].strip().lower() if len(parts) > 1 else "?"
-                pid = parts[-2].strip() if len(parts) > 2 else "?"
-                ram = parts[-1].strip() if len(parts) > 2 else "0"
-                if "abrasax" in name or "python" in name or "node" in name:
-                    processes[name] = {"pid": pid, "ram_bytes": ram}
-    except:
-        pass
+            "tasklist /fo csv /nh",
+            shell=True, timeout=8, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        ).decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001 - telemetry is best-effort
+        return processes
+
+    for row in _csv.reader(out.splitlines()):
+        if len(row) < 5:
+            continue
+        name = row[0].strip().lower()
+        if not any(tag in name for tag in ("python", "node", "abrasax")):
+            continue
+        entry = processes.setdefault(name, {"count": 0, "pids": [], "mem_kb": 0})
+        entry["count"] += 1
+        entry["pids"].append(row[1].strip())
+        try:
+            entry["mem_kb"] += int(row[4].split()[0].replace(",", ""))
+        except (ValueError, IndexError):
+            pass
     return processes
 
 
@@ -162,8 +282,9 @@ def face1_monitor() -> dict:
     # Compute phi variance from VRAM ratio
     if vram["vram_total_mb"] > 0:
         vram_ratio = vram["vram_used_mb"] / vram["vram_total_mb"]
-        # Ideal: K ratio (61.8% used) for optimal phi resonance
-        phi_variance = abs(vram_ratio - K)
+        # Ideal: TARGET_RATIO of VRAM used for optimal φ resonance (0.618 by
+        # default; override per host with ABRASAX_TARGET_VRAM_RATIO).
+        phi_variance = abs(vram_ratio - TARGET_RATIO)
         phi_history.append(phi_variance)
     else:
         phi_variance = 0.5
@@ -171,7 +292,10 @@ def face1_monitor() -> dict:
     awareness["face1_monitor"]["active"] = True
     awareness["face1_monitor"]["cycles"] += 1
     awareness["face1_monitor"]["last_vram"] = vram
-    awareness["face1_monitor"]["last_cpu"] = {"processes": len(procs)}
+    awareness["face1_monitor"]["last_cpu"] = {
+        "processes": sum(v["count"] for v in procs.values()),
+        "by_image": {k: v["count"] for k, v in procs.items()},
+    }
     awareness["face1_monitor"]["phi_variance"] = list(phi_history)[-10:]
 
     # Log significant events
@@ -222,12 +346,31 @@ def face2_reflect() -> str:
     elif vram.get("vram_free_mb", 0) < 1000:
         insight += f" | VRAM LOW: {vram['vram_free_mb']}MB free"
 
+    rule_insight = insight
+    llm = None
+    source = "rule"
+    if LM_ENABLED:
+        llm = lm_reflect(context, rule_insight)
+        if llm.get("ok"):
+            insight = llm["text"]
+            source = "llm"
+
     awareness["face2_reflect"]["active"] = True
     awareness["face2_reflect"]["cycles"] += 1
     awareness["face2_reflect"]["last_insight"] = insight
+    awareness["face2_reflect"]["rule_insight"] = rule_insight
+    awareness["face2_reflect"]["insight_source"] = source
+    awareness["face2_reflect"]["llm"] = llm
     awareness["face2_reflect"]["context"] = context
 
-    log(f"ϕ-REFLECTION [{context['phi_resonance']}]: {insight}", level="OK", face="F2-REF")
+    if source == "llm":
+        tag = f"LLM:{llm.get('model_used')}({llm.get('latency_s')}s)"
+    else:
+        tag = "RULE"
+        if llm and not llm.get("ok"):
+            tag += f" (LLM unavailable: {str(llm.get('error'))[:60]})"
+    log(f"ϕ-REFLECTION [{context['phi_resonance']}] ({tag}): {insight}",
+        level="OK", face="F2-REF")
     return insight
 
 
@@ -247,7 +390,8 @@ def face3_evolve() -> str:
     awareness["face3_evolve"]["cycles"] += 1
 
     # Compute global coherence as average of all faces
-    f1_coherence = 1.0 - min(sum(list(phi_history)[-5:]) / 5 if phi_history else 0.5, 1.0)
+    sample = list(phi_history)[-5:]
+    f1_coherence = 1.0 - min(sum(sample) / max(len(sample), 1), 1.0)
     f2_coherence = convergence
     f3_coherence = convergence * 0.9 + 0.1
     global_coherence = (f1_coherence + f2_coherence + f3_coherence) / 3
@@ -301,6 +445,7 @@ def triune_loop():
     cycle = 0
     last_reflect = 0
     last_evolve = 0
+    elapsed = 0.0
 
     try:
         while True:
@@ -345,6 +490,7 @@ def triune_loop():
 # ═════════════════════════════════════════════════════════════════════
 
 def main():
+    global LM_ENABLED, LM_MODEL, LM_API, LM_BASE, TARGET_RATIO, LM_TIMEOUT
     print(f'''
 ╔{"═"*62}╗
 ║  TRIUNE AWARENESS ENGINE                               ║
@@ -360,7 +506,24 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Triune Awareness Engine")
     parser.add_argument("--once", action="store_true", help="Run one cycle and exit")
+    parser.add_argument("--no-llm", action="store_true",
+                        help="Skip the LM Studio reflection and stay rule-based")
+    parser.add_argument("--model", default=None,
+                        help="LM Studio model id (default: resident model, else ABRASAX_LM_MODEL)")
+    parser.add_argument("--lm-url", default=None,
+                        help="LM Studio base URL, e.g. http://127.0.0.1:1234/v1")
+    parser.add_argument("--target-ratio", type=float, default=None,
+                        help="VRAM ratio treated as phi-balanced (default 0.618)")
     args = parser.parse_args()
+
+    LM_ENABLED = not args.no_llm
+    if args.lm_url:
+        LM_BASE = args.lm_url.rstrip("/")
+        LM_API = LM_BASE + "/chat/completions"
+    if args.model:
+        LM_MODEL = args.model
+    if args.target_ratio is not None:
+        TARGET_RATIO = args.target_ratio
 
     if args.once:
         face1_monitor()

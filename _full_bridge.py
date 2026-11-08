@@ -15,11 +15,11 @@ from datetime import datetime
 
 # Paths
 ABRASAX_ROOT = r"C:\abrasax"
-BINARY = os.path.join(ABRASAX_ROOT, "abrasax_rs", "target", "release", "abrasax.exe")
+BINARY = os.path.join(ABRASAX_ROOT, "RUST", "abrasax_rs", "target", "release", "abrasax.exe")
 MODEL_DIR = os.path.join(ABRASAX_ROOT, "abrasax_llm", "models", "gguf")
 LM_STUDIO_MODEL = r"C:\Users\lucar\.lmstudio\models\lmstudio-community\DeepSeek-R1-0528-Qwen3-8B-GGUF\DeepSeek-R1-0528-Qwen3-8B-Q3_K_L.gguf"
 LM_API = "http://127.0.0.1:1234"
-LM_KEY = "2HYgAvh9qhaNzERK/4bD+KC2"
+LM_KEY = os.environ.get("LM_API_KEY") or os.environ.get("LM_STUDIO_API_KEY", "")
 
 running = True
 processes = {}

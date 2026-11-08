@@ -180,7 +180,7 @@ def _one(url: str, key: str, model: str, messages: list[dict], timeout: float) -
         {
             "model": model,
             "messages": messages,
-            "max_tokens": 120,
+            "max_tokens": 400,
             "temperature": 0.7,
         }
     ).encode("utf-8")
@@ -194,6 +194,11 @@ def _one(url: str, key: str, model: str, messages: list[dict], timeout: float) -
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.load(resp)
         text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+        if not text:
+            # Thinking models (gemma-4-e2b) spend the budget on reasoning_content
+            # first; a content-less completion still carries the reflection there.
+            text = (data.get("choices") or [{}])[0].get("message", {}).get(
+                "reasoning_content", "")
         text = " ".join(str(text).split())[:400]
         return {
             "ok": bool(text),

@@ -28,9 +28,9 @@ LM_HEADERS = {'Content-Type': 'application/json'}
 if LM_STUDIO_KEY:
     LM_HEADERS['Authorization'] = f'Bearer {LM_STUDIO_KEY}'
 
-RUST_BIN = Path(ROOT) / 'abrasax_rs' / 'target' / 'release' / 'abrasax.exe'
-DAEMON_BIN = Path(ROOT) / 'abrasax_rs' / 'target' / 'release' / 'abrasaxd.exe'
-SRC_DIR = Path(ROOT) / 'abrasax_rs' / 'src'
+RUST_BIN = Path(ROOT) / 'RUST' / 'abrasax_rs' / 'target' / 'release' / 'abrasax.exe'
+DAEMON_BIN = Path(ROOT) / 'RUST' / 'abrasax_rs' / 'target' / 'release' / 'abrasaxd.exe'
+SRC_DIR = Path(ROOT) / 'RUST' / 'abrasax_rs' / 'src'
 LOG_DIR = Path(ROOT) / 'logs'
 DATA_LOG = Path(ROOT) / 'data' / 'logs'
 DATA_LOG.mkdir(parents=True, exist_ok=True)

@@ -49,42 +49,96 @@ NODE_F1 = {
         "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_diagnostics.ts",
         "AGENTS/TS-SWARM/ABRASAX-Agents/src/abrasax_config.ts",
     ],
-    "server_port": 3000,
+    "server_port": 4200,  # node dist TS runtime (was 3000)
 }
 
 # ── NODE F2: Python Core Bridge ──
 NODE_F2 = {
     "py_scripts": [
-        "_MASTER_AUTONOMY.py",
-        "_full_bridge.py",
-        "cbm_hydration_engine.py",
-        "abrasax_master.py",
-        "abrasax_ultimate_wire.py",
-        "_live_logger.py",
-        "_nonstop_reasoning.py",
-        "genesis_startup.py",
-        "abrasax_unified_awareness.py",
-        "abrasax_service_host.py",
+        "supervisor.py",
+        "triune_mind",
+        "sensor_bridge",
+        "tg_bot",
+        "gateway",
+        "filetool",
+        "brain_state_writer",
+        "imgui_overlay",
+        "abrasax_cellbrain",
+        "http.server",
     ],
 }
 
 # ── NODE F3: CBM / Rust Meta Bridge ──
 NODE_F3 = {
-    "rust_binary": ROOT / "abrasax_rs" / "target" / "release" / "abrasax.exe",
-    "rust_daemon": ROOT / "abrasax_rs" / "target" / "release" / "abrasaxd.exe",
+    # The crate lives under RUST\abrasax_rs (verified on disk); the old
+    # ROOT\abrasax_rs path never existed and always reported the binary missing.
+    "rust_binary": ROOT / "RUST" / "abrasax_rs" / "target" / "release" / "abrasax.exe",
+    "rust_daemon": ROOT / "RUST" / "abrasax_rs" / "target" / "release" / "abrasaxd.exe",
+    # Real locations of the 7D-Crystal engine files (verified on disk).
     "engine_files": [
-        "engine/seed_xor_graph.py",
-        "hetero_gpu_engine.py",
-        "cbm_hydration_engine.py",
-        "abrasax_f_logic_bridge.py",
+        "SYSTEMS/ABRASAX-7D-Crystal/src/seed_xor_graph.py",
+        "SYSTEMS/ABRASAX-7D-Crystal/hetero_gpu_engine.py",
+        "SYSTEMS/ABRASAX-7D-Crystal/cbm_hydration_engine.py",
+        "SYSTEMS/ABRASAX-7D-Crystal/src/abrasax_f_logic_bridge.py",
     ],
 }
+
+# ── NODE NEO: Neo-Transformer ↔ TON public-chain pulse ──
+# _NEO_TON_PULSE.py writes memory/neo_ton_loop.json every 30s (stdlib only,
+# read-only chain queries). The entangle loop reads it; stale = pulse dead.
+NEO_TON_STATE = MEMORY_DIR / "neo_ton_loop.json"
+NEO_TON_STALE_S = 75.0
+
+# ── PROCESS PROBE ──
+# wmic returns partial/broken CSV on this host (Win10 19045) and made F1/F2
+# report "nothing alive" while dozens of python processes ran. PowerShell
+# Get-CimInstance is the reliable source of command lines here.
+def ps_process_list(name_filter: str) -> str:
+    """Return 'pid|commandline' lines for processes matching name_filter."""
+    ps_filter = name_filter.replace("'", "''")
+    ps = ('powershell -NoProfile -Command "'
+          "Get-CimInstance Win32_Process -Filter '" + ps_filter + "'"
+          " | ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.CommandLine }"
+          '"')
+    return subprocess.check_output(ps, shell=True, timeout=15,
+                                   stderr=subprocess.DEVNULL).decode("utf-8", "replace")
+
+
+# Dead/unmaintainable trees that must not be walked: deep broken paths under
+# _ARCHIVE etc. raise WinError 3 mid-glob on this host.
+SCAN_SKIP_DIRS = {
+    "_ARCHIVE", "_BUILD", "_RESTORE", "_MERGE", "_VAULT", "_ghcrate",
+    ".git", "node_modules", "__pycache__", "Library", "logs", "LOGS",
+}
+
+
+def bounded_scan(suffixes, limit=50, max_depth=4):
+    """Depth/skip-bounded file scan; never raises on unreadable subtrees."""
+    found = []
+    base = str(ROOT).rstrip("\\/")
+    for dirpath, dirnames, filenames in os.walk(
+            base, onerror=lambda _e: None, followlinks=False):
+        depth = dirpath[len(base):].count(os.sep)
+        if depth >= max_depth:
+            dirnames[:] = []
+        else:
+            dirnames[:] = [d for d in dirnames if d not in SCAN_SKIP_DIRS]
+        for fn in filenames:
+            if fn.endswith(suffixes):
+                found.append(Path(dirpath) / fn)
+                if len(found) >= limit:
+                    return found
+    return found
+
 
 # ── ENTANGLEMENT STATE ──
 entanglement = {
     "node_f1": {"alive": False, "pid": None, "last_seen": None, "phi_resonance": 0.0},
     "node_f2": {"alive": False, "pid": None, "last_seen": None, "phi_resonance": 0.0},
     "node_f3": {"alive": False, "pid": None, "last_seen": None, "phi_resonance": 0.0},
+    "node_neo": {"alive": False, "pid": None, "last_seen": None, "phi_resonance": 0.0,
+                 "gateway_alive": False, "gateway_port": 2645},
+    "ton": {"alive": False, "last_seqno": None, "last_seen": None},
     "coupling_strength": 0.0,
     "coherence": 0.0,
 }
@@ -147,10 +201,7 @@ def wire_node_f1() -> bool:
 
     # Check for Node.js process with abrasax in name
     try:
-        out = subprocess.check_output(
-            'wmic process where "name=\'node.exe\'" get commandline /format:csv 2>nul',
-            shell=True, timeout=3, stderr=subprocess.DEVNULL
-        ).decode().lower()
+        out = ps_process_list("Name='node.exe'").lower()
         if "abrasax" in out:
             entanglement["node_f1"]["alive"] = True
             entanglement["node_f1"]["phi_resonance"] = PHI * 0.95
@@ -188,21 +239,20 @@ def wire_node_f2() -> bool:
     alive_count = 0
 
     try:
-        out = subprocess.check_output(
-            'wmic process where "name=\'python.exe\'" get processid,commandline /format:csv 2>nul',
-            shell=True, timeout=3, stderr=subprocess.DEVNULL
-        ).decode().lower()
+        out = ps_process_list("Name='python.exe' OR Name='pythonw.exe'").lower()
 
         for script in NODE_F2["py_scripts"]:
             script_lower = script.lower()
             if script_lower in out:
                 alive_count += 1
-                # Extract PID
-                for line in out.split("\n")[1:]:
-                    if script_lower in line:
-                        parts = line.strip().split(",")
-                        if parts and parts[-1].strip().isdigit():
-                            entanglement["node_f2"]["pid"] = int(parts[-1].strip())
+                # Extract PID from the first matching 'pid|commandline' line
+                if entanglement["node_f2"]["pid"] is None:
+                    for line in out.splitlines():
+                        if script_lower in line:
+                            pid_text = line.split("|", 1)[0].strip()
+                            if pid_text.isdigit():
+                                entanglement["node_f2"]["pid"] = int(pid_text)
+                                break
 
         if alive_count > 0:
             entanglement["node_f2"]["alive"] = True
@@ -238,11 +288,9 @@ def wire_node_f3() -> bool:
 
     # Check for running Rust processes
     try:
-        out = subprocess.check_output(
-            'wmic process where "name=\'abrasax.exe\' or name=\'abrasaxd.exe\'" get processid /format:csv 2>nul',
-            shell=True, timeout=3, stderr=subprocess.DEVNULL
-        ).decode()
-        pids = [line.strip().split(",")[-1] for line in out.split("\n")[1:] if line.strip() and line.strip().split(",")[-1].isdigit()]
+        out = ps_process_list("Name='abrasax.exe' OR Name='abrasaxd.exe'")
+        pids = [line.split("|", 1)[0].strip() for line in out.splitlines()
+                if line.strip() and line.split("|", 1)[0].strip().isdigit()]
         if pids:
             entanglement["node_f3"]["alive"] = True
             entanglement["node_f3"]["pid"] = int(pids[0])
@@ -270,13 +318,32 @@ def wire_node_f3() -> bool:
     except Exception as e:
         log(f"Node F3 GPU query: {e}", level="WARN", node="F3")
 
-    # Check CBM seed files
-    seed_files = list(ROOT.glob("**/*.npy")) + list(ROOT.glob("**/*.cbm"))
+    # LM Studio residency = live local compute node (GPU-served GGUF)
+    try:
+        import urllib.request as _ur
+        with _ur.urlopen("http://127.0.0.1:1234/v1/models", timeout=3) as _r:
+            _models = json.loads(_r.read().decode())
+        if _models.get("data"):
+            entanglement["node_f3"]["alive"] = True
+            log(f"Node F3: LM Studio resident models: {len(_models['data'])}", level="OK", node="F3")
+    except Exception as _e:
+        log(f"Node F3: LM Studio probe failed: {_e}", level="WARN", node="F3")
+
+    # Check CBM seed files (bounded, error-tolerant: dead archive paths must not kill wiring)
+    seed_files = []
+    try:
+        seed_files = bounded_scan((".npy", ".cbm"))
+    except Exception as _e:
+        log(f"Node F3: seed scan skipped (unreadable tree): {_e}", level="WARN", node="F3")
     if seed_files:
         log(f"Node F3: {len(seed_files)} CBM seed files found", level="OK", node="F3")
 
-    # Check GGUF models
-    gguf_files = list(ROOT.glob("**/*.gguf"))
+    # Check GGUF models (error-tolerant for the same reason)
+    gguf_files = []
+    try:
+        gguf_files = bounded_scan((".gguf",))
+    except Exception as _e:
+        log(f"Node F3: gguf scan skipped (unreadable tree): {_e}", level="WARN", node="F3")
     if gguf_files:
         log(f"Node F3: {len(gguf_files)} GGUF models available", level="OK", node="F3")
 
@@ -291,6 +358,60 @@ def wire_node_f3() -> bool:
 
 
 # ═════════════════════════════════════════════════════════════════════
+#  NODE NEO — Neo-Transformer ↔ TON public-chain pulse (read-only)
+# ═════════════════════════════════════════════════════════════════════
+
+def wire_neo_ton() -> bool:
+    """Read the Neo↔TON pulse state written by _NEO_TON_PULSE.py.
+
+    The pulse loop POSTs a 1-token probe to the resident gemma GGUF
+    (neo transformer) and GETs toncenter getMasterchainInfo (public,
+    read-only — no wallet, no transactions). Fresh state = node alive.
+    """
+    try:
+        raw = json.loads(NEO_TON_STATE.read_text(encoding="utf-8"))
+        ts_str = raw.get("ts")
+        last = datetime.fromisoformat(ts_str) if ts_str else None
+        age = (datetime.now() - last).total_seconds() if last else 1e9
+        fresh = age <= NEO_TON_STALE_S
+        lm = raw.get("neo_transformer", {}) or {}
+        ton = raw.get("ton", {}) or {}
+
+        entanglement["node_neo"]["alive"] = bool(fresh and lm.get("ok"))
+        entanglement["node_neo"]["last_seen"] = ts_str
+        entanglement["node_neo"]["phi_resonance"] = round(
+            PHI * (raw.get("coupled") or 0.0) / (PHI + K), 6) if fresh else 0.0
+
+        # Neotron gateway (GATEWAY/neotron_gateway.py, port 2645) is the
+        # transformer-serving infrastructure for this node.
+        gw_port = entanglement["node_neo"].get("gateway_port", 2645)
+        try:
+            _s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            _s.settimeout(1.0)
+            entanglement["node_neo"]["gateway_alive"] = (
+                _s.connect_ex(("127.0.0.1", gw_port)) == 0)
+            _s.close()
+        except Exception:
+            entanglement["node_neo"]["gateway_alive"] = False
+
+        entanglement["ton"]["alive"] = bool(fresh and ton.get("ok"))
+        entanglement["ton"]["last_seqno"] = ton.get("seqno")
+        entanglement["ton"]["last_seen"] = ts_str
+
+        if entanglement["node_neo"]["alive"]:
+            log(f"Node NEO: transformer ok | TON seqno={ton.get('seqno')} | age {age:.0f}s "
+                f"| gateway={'up' if entanglement['node_neo']['gateway_alive'] else 'down'}",
+                level="OK", node="NEO")
+        else:
+            log(f"Node NEO: pulse stale or dead (age {age:.0f}s)", level="WARN", node="NEO")
+        return entanglement["node_neo"]["alive"]
+    except Exception as e:  # noqa: BLE001
+        log(f"Node NEO read error: {e}", level="WARN", node="NEO")
+        entanglement["node_neo"]["alive"] = False
+        return False
+
+
+# ═════════════════════════════════════════════════════════════════════
 #  COMPUTE COUPLING STRENGTH & COHERENCE
 # ═════════════════════════════════════════════════════════════════════
 
@@ -299,18 +420,19 @@ def compute_coupling() -> dict:
     r1 = entanglement["node_f1"]["phi_resonance"]
     r2 = entanglement["node_f2"]["phi_resonance"]
     r3 = entanglement["node_f3"]["phi_resonance"]
+    r4 = entanglement["node_neo"]["phi_resonance"]
 
-    # Coupling = geometric mean of resonances / PHI (normalized)
-    if r1 > 0 and r2 > 0 and r3 > 0:
-        coupling = (r1 * r2 * r3) ** (1/3)
-    elif r1 > 0 and r2 > 0:
-        coupling = (r1 * r2) ** 0.5
-    elif r1 > 0 and r3 > 0:
-        coupling = (r1 * r3) ** 0.5
-    elif r2 > 0 and r3 > 0:
-        coupling = (r2 * r3) ** 0.5
+    # Coupling = geometric mean of all live node resonances (φ-weighted)
+    pos = [r for r in (r1, r2, r3, r4) if r > 0]
+    if len(pos) == 1:
+        coupling = pos[0]
+    elif len(pos) >= 2:
+        prod = 1.0
+        for r in pos:
+            prod *= r
+        coupling = prod ** (1.0 / len(pos))
     else:
-        coupling = max(r1, r2, r3)
+        coupling = max(r1, r2, r3, r4)
 
     entanglement["coupling_strength"] = round(coupling, 6)
 
@@ -552,16 +674,18 @@ def entanglement_loop(interval: float = 5.0):
         wire_node_f1()
         wire_node_f2()
         wire_node_f3()
+        wire_neo_ton()
         compute_coupling()
         log_state()
 
         a1 = "✓" if entanglement["node_f1"]["alive"] else "○"
         a2 = "✓" if entanglement["node_f2"]["alive"] else "○"
         a3 = "✓" if entanglement["node_f3"]["alive"] else "○"
+        a4 = "✓" if entanglement["node_neo"]["alive"] else "○"
         c = entanglement["coherence"]
         s = entanglement["coupling_strength"]
 
-        status = f"F1:{a1} F2:{a2} F3:{a3} | coupling:φ×{s:.4f} | coherence: {c:.2%}"
+        status = f"F1:{a1} F2:{a2} F3:{a3} NEO:{a4} | coupling:φ×{s:.4f} | coherence: {c:.2%}"
         log(f"ENTANGLEMENT: {status}", node="F")
 
         time.sleep(interval)
@@ -615,6 +739,7 @@ def main():
         wire_node_f1()
         wire_node_f2()
         wire_node_f3()
+        wire_neo_ton()
         compute_coupling()
         log_state()
         log(f"One-shot wire complete. Coupling: {entanglement['coupling_strength']:.4f} | Coherence: {entanglement['coherence']:.2%}",
