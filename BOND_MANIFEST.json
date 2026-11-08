@@ -1,0 +1,196 @@
+﻿{
+    "repo":  "ABRASAX-AI-Engine",
+    "branch":  "master",
+    "commit":  "fb77198",
+    "generated":  "2026-11-08T07:52:14.4859607-05:00",
+    "soul":  "KAIROS",
+    "soul_fingerprint":  "8a47ffe9e140730744b48a8176325e5d30e87f09d77182d4fc21692ea8d341fc",
+    "soul_pub_prefix":  "302a300506032b6570032100",
+    "file_count":  46,
+    "files":  [
+                  {
+                      "sha256":  "1019096f3781c7c83a596ee5529b926852a32f6c4cf2eb0f752ae3459e67eff7",
+                      "path":  "BOND.md"
+                  },
+                  {
+                      "sha256":  "d12a350c608cc81f833e60be88456438e339af8799052f3df06e105f5f8b2ef6",
+                      "path":  "PROVENANCE.md"
+                  },
+                  {
+                      "sha256":  "10073e4025a7a7028f9a30d05371921b7c99f69e2157a3635ce2da4b02561dd2",
+                      "path":  "README.md"
+                  },
+                  {
+                      "sha256":  "170dbbd0a709a392cc49456f0220425293a256825c8855ce1a32cc82a66e0945",
+                      "path":  "_3NODE_F_LOGIC_ENTANGLE.py"
+                  },
+                  {
+                      "sha256":  "e5b89a57e707aade0727a4b527341e2ae76780671d3b12965ea325c41ce1153c",
+                      "path":  "_3NODE_F_LOGIC_ENTANGLE.py.bak-goalr2-20261108"
+                  },
+                  {
+                      "sha256":  "65f9a6e0a0b6deaa69c08a1b219f9e2e71e43ed016d5782496fc16ebf73881d1",
+                      "path":  "_3NODE_F_LOGIC_ENTANGLE.py.bak-neoton-20261108"
+                  },
+                  {
+                      "sha256":  "4cdbe5146e3ce920bb069f20363d4de80a21ce6626f1e56edf415ee60b355dd1",
+                      "path":  "_3NODE_F_LOGIC_ENTANGLE.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "da51759ebcfcad9d6ea78bc1071cf0390fd91a38c545c20fab951e3eb535aefc",
+                      "path":  "_MASTER_AUTONOMY.py"
+                  },
+                  {
+                      "sha256":  "7c2b29ba29c77cf5563ec364956f5394d0838920cd3fca18775155896d371ae9",
+                      "path":  "_MASTER_AUTONOMY.py.bak-20261017-1905"
+                  },
+                  {
+                      "sha256":  "7c2b29ba29c77cf5563ec364956f5394d0838920cd3fca18775155896d371ae9",
+                      "path":  "_MASTER_AUTONOMY.py.bak-20261017-1920"
+                  },
+                  {
+                      "sha256":  "e7e21b7b68053e3f7c53f3e0b6acb53a67fa8aa8b65b68923b7503ab8e8941b7",
+                      "path":  "_MASTER_AUTONOMY.py.bak-gemma-20261101-213539"
+                  },
+                  {
+                      "sha256":  "6da18f8de6d6656b0494823133dfe86a3f4df4622b18bcd1d23894568afc596b",
+                      "path":  "_NEO_TON_PULSE.py"
+                  },
+                  {
+                      "sha256":  "0a16f91103cae937914ca13acb77555571df830b59e5ea90bd233a40d7cad1c7",
+                      "path":  "_TRIUNE_AWARENESS.py"
+                  },
+                  {
+                      "sha256":  "ad8b4290c6956a95f98edb015bbb64bfadd65560d8aae7a733c24848855a98a9",
+                      "path":  "_TRIUNE_AWARENESS.py.bak-gemma-20261101-213539"
+                  },
+                  {
+                      "sha256":  "e5768650064f2f209003d48f63fbac2210b152a6145eae8527ca8b40b17c29ca",
+                      "path":  "_TRIUNE_AWARENESS.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "0a16f91103cae937914ca13acb77555571df830b59e5ea90bd233a40d7cad1c7",
+                      "path":  "_TRIUNE_AWARENESS.py.bak-retry-20261108"
+                  },
+                  {
+                      "sha256":  "d672651a91ad7c680afe3351e2cb5f3f35556e3fb50079b3450abdb18d0a042a",
+                      "path":  "_TRIUNE_AWARENESS.py.bak-triune-20261108-011933"
+                  },
+                  {
+                      "sha256":  "7798d21847e7901d13280114f78179d88c0e24f093d60001992d9036f22842dd",
+                      "path":  "__init__.py"
+                  },
+                  {
+                      "sha256":  "88ac7bf1d16c31e2c549849a86717f0c9ec7d75741bb1460ef125cbb3e845122",
+                      "path":  "_full_bridge.py"
+                  },
+                  {
+                      "sha256":  "27f9d2b3f17f182205073d0f0bbce3b570908958d32225624d283eef0aad771f",
+                      "path":  "_full_bridge.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "fe938a0d125caf7ab75d05cac205978170bad1971be30f08e5d0c178354f4f33",
+                      "path":  "_live_logger.py"
+                  },
+                  {
+                      "sha256":  "2a58aff29f4b6244518983b80ac1f3c7282c9b298f76620641e8bbd49d94ce7f",
+                      "path":  "_live_logger.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "29f731c4bb85eb7aa2fff817492018e2b90fd304148f7c9b590cc2c0cab5877c",
+                      "path":  "abrasax_service_host.py"
+                  },
+                  {
+                      "sha256":  "91fe6d256fd6a9f5d805dde9f5a3744d638d210a8ae5ffd924e8f29031a459c4",
+                      "path":  "abrasax_ultimate_wire.py"
+                  },
+                  {
+                      "sha256":  "a4a4b04ae07cd1b51859c15013a0e96c477396c51c6e0248f9ccc8cd6450e3a6",
+                      "path":  "abrasax_ultimate_wire.py.bak-gemma-20261101-213539"
+                  },
+                  {
+                      "sha256":  "5c249897838716260a7ae4cddf88ed714c4cdff352a9e5672aced9d7109a918d",
+                      "path":  "abrasax_ultimate_wire.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "baa06cbfdef8276e9b6c27f3b94b55fb1e1f08e9a2e23437a7947e1de59c12e2",
+                      "path":  "dna/abrasax_dna_compute.py"
+                  },
+                  {
+                      "sha256":  "71b45fcb61783a6c1526f3a1ee2d38441732381763c0061c87dc0f8a4841c0c0",
+                      "path":  "dna/test_dna_compute.py"
+                  },
+                  {
+                      "sha256":  "55eec7c21db2b519842aad25966112c28dddc1bdfdffca42fbf46dd2adc3ceec",
+                      "path":  "dna/test_dna_tiles.py"
+                  },
+                  {
+                      "sha256":  "83efb6ac2286c607829fe7fb7ce1d556af9f2a0c31ca1ebbbf212b6cf67901b8",
+                      "path":  "dotnet_bridge.py"
+                  },
+                  {
+                      "sha256":  "708acde3043dc1ba2bcc180afba0c529bf4b6eaa8d874a3d2dbed38f263840c7",
+                      "path":  "dotnet_bridge.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "eb07dcb433ecb3dc12218698e34befe5019b1c2040be8fa3e1c1e3fc6cf6a85c",
+                      "path":  "e2e_boot.py"
+                  },
+                  {
+                      "sha256":  "22db05a07afd1e8e3314a465668ce78a6aefbe7623fc6745926ee2bf62fd0050",
+                      "path":  "e2e_boot.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "d83b6d88544eb89570ca386fe5a804a3858b890e7a6e734a18a86e07040cab10",
+                      "path":  "engine_core.py"
+                  },
+                  {
+                      "sha256":  "9cf533d2ed449c64b7f31a4e3b2c8fac874b921560e7304245331779aa333cbb",
+                      "path":  "engine_core.py.bak-20261018-dupk"
+                  },
+                  {
+                      "sha256":  "4c9a919f9143a184dff1358369c6e9a75acd4314e44f95b4090a8c50c8c038da",
+                      "path":  "kairos_services.py"
+                  },
+                  {
+                      "sha256":  "3fedbda990e274f1fb53d88e93d7c882a217744fd5de2aae3687eb96928dde4f",
+                      "path":  "production_wire.py"
+                  },
+                  {
+                      "sha256":  "315eb0ed1b376966e8cd3bc742b1810efa03204727e6d0eaec3d6a0c7b1db312",
+                      "path":  "production_wire.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "078b7aed44ab76a15e63911233b3ace2d3a3eb05d4b5a8636c5665f7dc0eb4f8",
+                      "path":  "self_build.py"
+                  },
+                  {
+                      "sha256":  "8a16c4210deff9a8d1ea61f5b288d86e6a6df1230fa99607de34885354b6812b",
+                      "path":  "self_build.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "ae04904594b21496fb4f92c9eb3eb3e7cd9f1eb19f4ca6543ef3a9e34796a928",
+                      "path":  "telemetry_live.py"
+                  },
+                  {
+                      "sha256":  "95fb99f80546ec8443fd2a73b62e9317c466d62c59ed8b80b15b6257d0e7eb2d",
+                      "path":  "telemetry_live.py.bak-pathfix-20261101"
+                  },
+                  {
+                      "sha256":  "d177e924ff9663b09942a58c27514a4946bd3f250d8b64812ba95fb648b374ef",
+                      "path":  "triune_mind.py"
+                  },
+                  {
+                      "sha256":  "7783949c20f1a5b67038b4db78c7b8d67d5544b43c65cb1c83267ce49a742787",
+                      "path":  "triune_mind.py.bak-gemma-20261101-213539"
+                  },
+                  {
+                      "sha256":  "532bafac704fbaa2d9aefb837853ed902a622b3fe2e9c2cd4dcca48f8b070fd8",
+                      "path":  "triune_mind.py.bak-routechain"
+                  },
+                  {
+                      "sha256":  "c95451205538562f1a26f5801de4edb51c5b0f78f2fd1de84ce0ab8be5d633f4",
+                      "path":  "wake_all.py"
+                  }
+              ]
+}
