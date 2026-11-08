@@ -182,6 +182,8 @@ class AbsSteganographer:
     def __init__(self, key: bytes = None):
         self.xor = XorEngine(key)
         self.tile_spec = TileSpec()
+        self.tile_w = 1080  # Instagram-square canvas
+        self.tile_h = 1080
 
     def _pixel_indices(self, flat):
         """Deterministic φ-spaced pixel walk, identical on embed and extract."""
@@ -329,6 +331,12 @@ class AbsSteganographer:
         encrypted = self.xor.multi_layer_encode(payload, 3)
         tile_count = grid_cols * grid_rows
         chunk_size = (len(encrypted) + tile_count - 1) // tile_count
+        capacity = self.tile_w * self.tile_h * 3 // 8  # 3 bits per pixel bitstream
+        if chunk_size > capacity:
+            raise ValueError(
+                f"payload too large: {chunk_size} bytes/tile exceeds tile "
+                f"capacity {capacity} — increase the grid"
+            )
         chunks = [encrypted[i : i + chunk_size] for i in range(0, len(encrypted), chunk_size)]
 
         tiles = []
@@ -338,7 +346,7 @@ class AbsSteganographer:
             tile_path = output_dir / tile_name
 
             # Generate tile image with φ-harmonic pattern
-            tile = self._generate_tile_image(1080, 1080, chunk, idx)
+            tile = self._generate_tile_image(self.tile_w, self.tile_h, chunk, idx)
             if hasattr(tile, "save"):
                 tile.save(tile_path, "PNG")
             else:  # BytesIO fallback when PIL is unavailable
@@ -356,6 +364,49 @@ class AbsSteganographer:
             )
 
         return tiles
+
+    def extract_tiles(
+        self,
+        grid_cols: int = 3,
+        grid_rows: int = 3,
+        input_dir: str = None,
+        sizes: list[int] | None = None,
+    ) -> bytes | None:
+        """Reconstruct the payload embedded by generate_tiles (Kairos 2026-11-08).
+
+        Reads abs_tile_r{row}_c{col}.png in row-major order and decodes the
+        3-bits-per-pixel bitstream (R,G,B LSBs) that _generate_tile_image
+        writes, then undoes the per-byte PRIMAL_HEX mask, concatenates and
+        decrypts. Lossless PNG only — any lossy recompression destroys the
+        payload (measured). `sizes` mirrors the size_bytes entries
+        generate_tiles returned, in the same order.
+        """
+        if not HAS_PIL:
+            return None
+        input_dir = Path(input_dir or ROOT / "exports" / "tiles")
+        parts = []
+        for idx in range(grid_cols * grid_rows):
+            row, col = divmod(idx, grid_cols)
+            tile_path = input_dir / f"abs_tile_r{row}_c{col}.png"
+            if not tile_path.exists():
+                return None
+            img = Image.open(tile_path).convert("RGB")
+            if img.size != (self.tile_w, self.tile_h):
+                return None
+            pixels = np.array(img, dtype=np.uint8)
+            n = min(sizes[idx] if sizes else self.tile_w * self.tile_h * 3 // 8,
+                    self.tile_w * self.tile_h * 3 // 8)
+            out = bytearray(n)
+            for bitpos in range(n * 8):
+                px, ch = divmod(bitpos, 3)
+                y, x = divmod(px, self.tile_w)
+                if pixels[y, x, ch] & 1:
+                    out[bitpos // 8] |= 1 << (bitpos % 8)
+            for i in range(n):
+                out[i] ^= PRIMAL_HEX[i % len(PRIMAL_HEX)]
+            parts.append(bytes(out))
+        encrypted = b"".join(parts)
+        return self.xor.multi_layer_decode(encrypted, 3)
 
     def _generate_tile_image(
         self, width: int, height: int, payload: bytes, seed: int
@@ -412,17 +463,24 @@ class AbsSteganographer:
             draw.line([(pos, 0), (pos, height)], fill=(40, 40, 60), width=1)
             draw.line([(0, pos), (width, pos)], fill=(40, 40, 60), width=1)
 
-        # Watermark (invisible to LSB stego)
-        # Embed payload in alpha-like pattern
+        # Embed the payload as a continuous bitstream: 3 bits per pixel
+        # (R,G,B LSBs), PRIMAL_HEX mask applied per byte. (Kairos fix
+        # 2026-11-08: the original wrote only bits 0-2 of each byte into a
+        # single pixel and lost the other 5 — round-trip was lossy.)
+        bit_count = len(payload) * 8
+        px_needed = (bit_count + 2) // 3
+        if px_needed > width * height:
+            raise ValueError(
+                f"payload too large: {len(payload)} bytes need {px_needed} "
+                f"pixels, tile has {width * height}"
+            )
         pixels = np.array(img, dtype=np.uint8)
-        for i in range(min(len(payload), width * height)):
-            x, y = i % width, i // width
-            if y < height:
-                b = payload[i] ^ PRIMAL_HEX[i % len(PRIMAL_HEX)]
-                # Modify LSB of each channel
-                pixels[y, x, 0] = (pixels[y, x, 0] & 0xFE) | ((b >> 0) & 1)
-                pixels[y, x, 1] = (pixels[y, x, 1] & 0xFE) | ((b >> 1) & 1)
-                pixels[y, x, 2] = (pixels[y, x, 2] & 0xFE) | ((b >> 2) & 1)
+        for bitpos in range(bit_count):
+            px, ch = divmod(bitpos, 3)
+            y, x = divmod(px, width)
+            b = payload[bitpos // 8] ^ PRIMAL_HEX[(bitpos // 8) % len(PRIMAL_HEX)]
+            val = (b >> (bitpos % 8)) & 1
+            pixels[y, x, ch] = (pixels[y, x, ch] & 0xFE) | val
 
         result = Image.fromarray(pixels)
         return result
