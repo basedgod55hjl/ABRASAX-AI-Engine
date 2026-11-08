@@ -323,7 +323,9 @@ class AbsSteganographer:
         Together they form a carousel that carries the full AI.
 
         For Instagram: 3×3 = 9 tiles, each 1080×1080
-        Total capacity: ~23MB hidden AI payload
+        Measured capacity (3-bit/pixel bitstream): 437,400 B per tile,
+        3.94 MB per 3×3 grid. Lossless PNG only — Instagram's JPEG
+        recompression destroys the payload (measured 2026-11-08).
         """
         output_dir = Path(output_dir or ROOT / "exports" / "tiles")
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -384,8 +386,11 @@ class AbsSteganographer:
         if not HAS_PIL:
             return None
         input_dir = Path(input_dir or ROOT / "exports" / "tiles")
+        # generate_tiles emits one tile per chunk; small payloads produce
+        # fewer tiles than grid cells, so follow `sizes` when provided.
+        count = len(sizes) if sizes else grid_cols * grid_rows
         parts = []
-        for idx in range(grid_cols * grid_rows):
+        for idx in range(count):
             row, col = divmod(idx, grid_cols)
             tile_path = input_dir / f"abs_tile_r{row}_c{col}.png"
             if not tile_path.exists():

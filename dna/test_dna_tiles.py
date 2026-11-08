@@ -53,5 +53,15 @@ print(f"full 20B model: {full_size:,} bytes")
 print(f"tiles needed: {full_size / capacity:,.0f} ({full_size / capacity / 9:,.0f} carousels of 9)")
 print(f"PNG storage estimate: ~{full_size / capacity * 1.5 / 1000:.1f} GB of tiles")
 
+# edge cases: tiny payload (fewer tiles than grid cells) and wifi k=1
+tiny = b"KAIROS"
+tt = engine.stego.generate_tiles(tiny, 3, 3, str(outdir))
+sizes_t = [t["size_bytes"] for t in tt]
+rec_t = engine.stego.extract_tiles(3, 3, str(outdir), sizes_t)
+print("edge tiny payload:", "PASS" if rec_t == tiny else f"FAIL got {rec_t}")
+
+s = engine.wifi.simulate_transmission(b"hello", loss_rate=0.5, seed=1)
+print("edge wifi k=1 @50% loss:", "PASS" if s["recovery_ok"] else "FAIL")
+
 shutil.rmtree(outdir, ignore_errors=True)
 sys.exit(0 if ok else 1)
